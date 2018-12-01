@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> The Most Stupid Way To Calculate A Six-Grade Problem</title>
+</head>
+<body>
+<canvas id="main" style="height: 100vh; width: 100vw; position: absolute; left: 0; top: 0;"> Not Supported</canvas>
+
+<script>
+    (() => {
+        const canvas = document.getElementById('main');
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        canvas.height = H;
+        canvas.width = W;
+        const c = canvas.getContext("2d"); // Create canvas context
+        canvas.addEventListener("mousedown", click, true);
+        canvas.addEventListener("mouseup", release, true);
+        canvas.addEventListener("mousemove", move, true);
+        let game_started = false;
+        let mx = -30, my = -30;
+        let hit = 0, miss = 0;
+        let firing_handle = -1;
+        let cirnos = [];
+        let stat_text = '点击画面开始';
+
+        function move(e) {
+            if (game_started) {
+                mx = e.clientX;
+                my = e.clientY;
+            } else {
+                mx = -30;
+                my = -30;
+            }
+        }
+
+        function init_game() {
+            game_started = true;
+            hit = 0;
+            miss = 0;
+            cirnos = [new Cirno(W / 2 - 300, 200), new Cirno(W / 2 + 300, 200)];
+            for (let i of cirnos) {
+                i.start();
+            }
+            stat_text = '';
+        }
+
+        function dead() {
+            game_started = false;
+            release();
+            for (let i of cirnos) {
+                clearInterval(i.firing_handle);
+            }
+            cirnos = [];
+            canvas.removeEventListener('mousedown', click, true);
+
+            //score
+            let score = Math.abs(hit / (hit + miss) * 32 - 1.2520);
+            if (score > 1) {
+                stat_text = '你用60°算的吗?';
+            } else if (score > 0.5) {
+                stat_text = '不如用量角器试试看';
+            } else if (score > 0.2) {
+                stat_text = '圆周率取3也行, 不告诉祖冲之的话';
+            } else if (score > 0.05) {
+                stat_text = '至少卷面分拿满了';
+            } else if (score > 0.01) {
+                stat_text = '取两位小数, 就可以从六年级毕业了';
+            } else if (score > 0.001) {
+                stat_text = '为什么要一直打矩形, 矩形做错了什么';
+            } else if (score > 0.0003) {
+                stat_text = '你很有时间, 或者很走运, 或者很有钱';
+            } else {
+                stat_text = '我琢磨着不是秃头的看不见这条';
+            }
+        }
+
+        function click(e) {
+            if (!game_started) {
+                init_game();
+            }
+            move(e);
+            if (firing_handle < 0) {
+                firing_handle = setInterval(() => {
+                    new Bullet(mx, my, Math.random() * question.w + question.x, Math.random() * question.h + question.y, 0.5, 'green');
+                }, 10)
+            }
+        }
+
+        function release(e) {
+            if (firing_handle >= 0) {
+                clearInterval(firing_handle);
+                firing_handle = -1;
+            }
+        }
+
+        const me = {
+            fat: 20,
+            brain: 8,
+            draw: function () {
+                c.beginPath();
+                c.arc(mx, my, this.fat, 0, Math.PI * 2);
+                c.fillStyle = 'blue';
+                c.fill();
+            }
+        };
+
+        const question = {
+            w: 400,
+            h: 200,
+            x: W / 2 - 200,
+            y: 30,
+            vib: 0,
+
+            draw: function () {
+                let x = this.x, y = this.y, w = this.w, h = this.h;
+
+                if (this.vib > 0) {
+                    --this.vib;
+                    x += Math.random() * 5 - 2.5;
+                    y += Math.random() * 2 - 1;
+                }
+
+                c.beginPath();
+                c.moveTo(x, y);
+                c.lineTo(x, y + h);
+                c.lineTo(x + w / 2, y + h);
+                c.fillStyle = 'red';
+                c.fill();
+
+                c.beginPath();
+                c.moveTo(x + w, y);
+                c.lineTo(x, y);
+                c.lineTo(x, y + h);
+                c.fillStyle = 'black';
+                c.fill();
+                c.arc(x + w / 2, y, h, 0, Math.PI);
+                c.fill();
+
+                c.strokeStyle = 'white';
+                c.lineWidth = 4;
+                c.strokeRect(x, y, w, h);
+                c.beginPath();
+                c.arc(x + w / 2, y, h, 0, Math.PI);
+                c.moveTo(x + w, y);
+                c.lineTo(x, y + h);
+                c.stroke();
+
+            }
+        };
+
+        function Cirno(x, y) {
+            this.x = x;
+            this.y = y;
+            this.r = Math.sqrt((x - W / 2) * (x - W / 2) + (y - H / 2) * (y - H / 2));
+            this.trail = 0;
+            this.bullet_speed = 0.15;
+            this.t = performance.now();
+            this.r_dir = (W/2 > this.x ? -1: 1);
+
+            this.fire = function () {
+                for (let i = -4; i < 5; ++i) {
+                    let dir = Math.atan((my - this.y) / (mx - this.x)) + Math.PI * 0.05 * i + (mx < this.x ? Math.PI : 0);
+                    new NinesBullet(this.x, this.y, this.bullet_speed * Math.cos(dir), this.bullet_speed * Math.sin(dir), 15000, 'cyan');
+                }
+            };
+
+            this.start = function () {
+                this.firing_handle = setInterval(() => {
+                    this.fire();
+                }, 350)
+            };
+
+            this.update_pos = function () {
+                let dir = Math.atan((H / 2 - this.y) / (W / 2 - this.x)) + (W / 2 > this.x ? Math.PI : 0) +
+                    0.00002 * (performance.now()-this.t)/1000 * Math.PI * this.r_dir;
+                this.x = this.r * Math.cos(dir) + W/2;
+                this.y = this.r * Math.sin(dir) + H/2;
+            }
+        }
+
+
+        function NinesBullet(x, y, vx, vy, t, color) {
+            this.color = color;
+            this.start = performance.now();
+            this.t = t;
+            this.vx = vx;
+            this.vy = vy;
+            this.x = x;
+            this.y = y;
+
+            this.draw = function () {
+                let t = performance.now() - this.start;
+                if (t < this.t) {
+                    c.beginPath();
+                    c.fillStyle = this.color;
+                    c.arc(this.x + t * this.vx, this.y + t * this.vy, 5, 0, Math.PI * 2);
+                    c.fill();
+
+                    if ((this.x + t * this.vx - mx) * (this.x + t * this.vx - mx) +
+                        (this.y + t * this.vy - my) * (this.y + t * this.vy - my) < me.brain * me.brain) {
+                        dead();
+                    } else {
+                        requestAnimationFrame(this.draw.bind(this));
+                    }
+                }
+            };
+            this.draw();
+        }
+
+        function Bullet(x, y, tx, ty, v, color) {
+            this.color = color;
+            this.start = performance.now();
+            this.t = Math.sqrt((tx - x) * (tx - x) + (ty - y) * (ty - y)) / v;
+            this.delay = me.fat / v;
+
+            this.vx = (tx - x) / this.t;
+            this.vy = (ty - y) / this.t;
+            this.x = x;
+            this.y = y;
+
+            this.hit = ((tx - question.x) / (question.w / question.h) > (question.y + question.h - ty) &&
+                (tx - question.x - question.w / 2) * (tx - question.x - question.w / 2) +
+                (question.y + question.h - ty - question.h) * (question.y + question.h - ty - question.h) > question.h * question.h &&
+                (tx - question.x) < (question.w / 2)
+            );
+
+            this.draw = function () {
+                let t = performance.now() - this.start;
+                if (t >= this.t) {
+                    if (this.hit) {
+                        question.vib = 4;
+                        c.fillStyle = "rgba(0, 255, 255, 1)";
+                        ++hit;
+                    } else {
+                        c.fillStyle = "rgba(150, 150, 0, 0.9)";
+                        ++miss;
+                    }
+
+                    c.beginPath();
+                    c.arc(this.x + t * this.vx, this.y + t * this.vy, 10, 0, Math.PI * 2);
+                    c.fill();
+                } else if (t <= this.delay) {
+                    requestAnimationFrame(this.draw.bind(this));
+                } else {
+                    c.beginPath();
+                    c.fillStyle = this.color;
+                    c.arc(this.x + t * this.vx, this.y + t * this.vy, 5, 0, Math.PI * 2);
+                    c.fill();
+                    requestAnimationFrame(this.draw.bind(this));
+                }
+            };
+            this.draw();
+        }
+
+
+        function update_score() {
+            c.font = "18px Arial, sans-serif";
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = 'white';
+            c.fillText('估计面积: ' + (hit / (hit + miss) * 32).toFixed(5), W / 2, 15);
+        }
+
+        function updateFrame() {
+
+            c.fillStyle = "black";
+            c.fillRect(0, 0, W, H);
+            c.font = "30px Arial, sans-serif";
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = 'white';
+            c.fillText(stat_text, W / 2, H / 2);
+
+            question.draw();
+            me.draw();
+            update_score();
+            for (let i of cirnos) {
+                i.update_pos();
+            }
+            requestAnimationFrame(updateFrame);
+        }
+
+        // start
+        requestAnimationFrame(updateFrame);
+    })();
+</script>
+</body>
+</html>
